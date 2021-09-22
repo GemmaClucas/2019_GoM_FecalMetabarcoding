@@ -360,7 +360,7 @@ pre code {
 conda activate qiime2-2021.2</code></pre>
 <div id="import-the-data-into-qiime2" class="section level2">
 <h2>Import the data into Qiime2</h2>
-<p>It’s saved on my back-up hardrive.</p>
+<p>It’s saved on my back-up hardrive. This is now full, so the puffin MiFish test reads are on my solid state hardrive “Data_SS1”.</p>
 <pre><code>qiime tools import\
   --type 'SampleData[PairedEndSequencesWithQuality]'\
   --input-path /Volumes/DATA_BACKUP/2021_metabarcoding/Plate7/reads/ \
@@ -387,9 +387,62 @@ qiime tools import\
   
 qiime tools import\
   --type 'SampleData[PairedEndSequencesWithQuality]'\
-  --input-path /Volumes/DATA_BACKUP/2021_metabarcoding/Puffin_MiFish_tests/reads/ \
+  --input-path /Volumes/Data_SS1/Puffin_MiFish_tests/reads/ \
   --input-format CasavaOneEightSingleLanePerSampleDirFmt\
   --output-path MiFish/demux_Puffin_tests.qza  </code></pre>
+<p>Move to the diectory where all the next steps will be. Summarise read quality and number of reads for each plate.</p>
+<pre><code>cd MiFish/
+
+for K in {7..10}; do
+  qiime demux summarize \
+    --i-data demux_Plate$K.qza \
+    --o-visualization demux_Plate$K.qzv
+done
+
+qiime demux summarize \
+  --i-data demux_Puffin_tests.qza \
+  --o-visualization demux_Puffin_tests.qzv</code></pre>
+</div>
+<div id="trim-primers-with-cutadapt-plugin" class="section level2">
+<h2>2. Trim primers with cutadapt plugin</h2>
+<p>F primer: GTCGGTAAAACTCGTGCCAGC (21 bp)<br />
+R primer: CATAGTGGGGTATCTAATCCCAGTTTG (27 bp)</p>
+<div id="trim-3-ends-first" class="section level3">
+<h3>Trim 3’ ends first</h3>
+<p>At the 3’ end of the read, the primer will have been read through after reading the MiFish sequence. I need to be looking for the reverse complement of the reverse primer in R1 (<code>—p-adapter-f</code>) and the reverse complement of the forward primer in R2 (<code>—p-adapter-r</code>)</p>
+<p>F primer reverse complement: GCTGGCACGAGTTTTACCGAC<br />
+R primer reverse complement: CAAACTGGGATTAGATACCCCACTATG</p>
+<pre><code>for K in {7..10}; do
+  qiime cutadapt trim-paired \
+    --i-demultiplexed-sequences demux_Plate$K.qza \
+    --p-adapter-f CAAACTGGGATTAGATACCCCACTATG \
+    --p-adapter-r GCTGGCACGAGTTTTACCGAC \
+    --o-trimmed-sequences trimd_Plate$K.qza \
+    --verbose &gt; cutadapt_out_Plate$K.txt
+done
+
+# NOT RUN YET:
+for K in {7..10}; do
+  qiime demux summarize \
+    --i-data trimd_Plate$K.qza \
+    --o-visualization trimd_Plate$K.qzv
+done    </code></pre>
+<p>And the same for the puffins</p>
+<pre><code>qiime cutadapt trim-paired \
+  --i-demultiplexed-sequences demux_Puffin_tests.qza \
+  --p-adapter-f CAAACTGGGATTAGATACCCCACTATG \
+  --p-adapter-r GCTGGCACGAGTTTTACCGAC \
+  --o-trimmed-sequences trimd_Puffin_tests.qza \
+  --verbose &gt; cutadapt_out_Puffin_tests.txt
+
+# NOT RUN YET:
+qiime demux summarize \
+  --i-data trimd_Puffin_tests.qza \
+  --o-visualization trimd_Puffin_tests.qzv</code></pre>
+<p>To see how much data passed the filter for each sample</p>
+<pre><code>grep &quot;Total written (filtered):&quot; cutadapt_out_Plate$K.txt </code></pre>
+<p>Looks like not very much passed the filters in the puffin samples - compare to terns.</p>
+</div>
 </div>
 </div>
 
