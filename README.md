@@ -80,7 +80,6 @@ for K in {7..10}; do
     --verbose > cutadapt_out_Plate$K.txt
 done
 
-# NOT RUN YET:
 for K in {7..10}; do
   qiime demux summarize \
     --i-data trimd_Plate$K.qza \
@@ -97,18 +96,121 @@ qiime cutadapt trim-paired \
   --o-trimmed-sequences trimd_Puffin_tests.qza \
   --verbose > cutadapt_out_Puffin_tests.txt
 
-# NOT RUN YET:
 qiime demux summarize \
   --i-data trimd_Puffin_tests.qza \
   --o-visualization trimd_Puffin_tests.qzv
 ```
 
-To see how much data passed the filter for each sample
+To see how much data passed the filter for each sample:
 
 ```
 grep "Total written (filtered):" cutadapt_out_Plate$K.txt 
 ```
 
-Looks like not very much passed the filters in the puffin samples - compare to terns.
+Looks like not very much passed the filters in the puffin samples. 50 - 75% seems to be about the average for the tern samples; some drop as low as 20% though.
 
 
+### Trim 5' ends of reads
+
+All R1 should begin with the forward primer: GTCGGTAAAACTCGTGCCAGC (21 bases).  
+All R2 should begin with the reverse primer: CATAGTGGGGTATCTAATCCCAGTTTG (27 bases).
+
+Trim these with the following commands:
+
+```
+for K in {7..10}; do
+  qiime cutadapt trim-paired \
+    --i-demultiplexed-sequences trimd_Plate$K.qza \
+    --p-front-f GTCGGTAAAACTCGTGCCAGC \
+    --p-front-r CATAGTGGGGTATCTAATCCCAGTTTG \
+    --o-trimmed-sequences trimd2_Plate$K.qza \
+    --verbose > cutadapt_out2_Plate$K.txt
+done
+
+qiime cutadapt trim-paired \
+  --i-demultiplexed-sequences trimd_Puffin_tests.qza \
+  --p-front-f GTCGGTAAAACTCGTGCCAGC \
+  --p-front-r CATAGTGGGGTATCTAATCCCAGTTTG \
+  --o-trimmed-sequences trimd2_Puffin_tests.qza \
+  --verbose > cutadapt_out2_Puffin_tests.txt
+```
+
+About 90% of the data seems to pass this filter for both puffins and terns. 
+
+Not going to make the qzv files for now.
+
+## 3. Denoise with dada2
+
+I am going to use the same settings that I used for the 2017 and 2018 tern fecal samples here.  
+
+The MiFish amplicon is about 240bp long. Trimming like this will give 268bp with about 28 bp of overlap between forward and reverse reads.
+
+Note, this step is pretty slow to run.
+
+```
+for K in {7..10}; do
+  qiime dada2 denoise-paired \
+    --i-demultiplexed-seqs trimd2_Plate$K.qza \
+    --p-trunc-len-f 133 \
+    --p-trunc-len-r 138 \
+    --p-trim-left-f 0 \
+    --p-trim-left-r 0 \
+    --p-n-threads 16 \
+    --o-representative-sequences rep-seqs_Plate$K \
+    --o-table table_Plate$K \
+    --o-denoising-stats denoise_Plate$K
+done
+
+qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs trimd2_Puffin_tests.qza \
+  --p-trunc-len-f 133 \
+  --p-trunc-len-r 138 \
+  --p-trim-left-f 0 \
+  --p-trim-left-r 0 \
+  --p-n-threads 16 \
+  --o-representative-sequences rep-seqs_Puffin_tests \
+  --o-table table_Puffin_tests \
+  --o-denoising-stats denoise_Puffin_tests 
+
+```
+
+Create visualizations for the denoising stats.
+```
+qiime metadata tabulate\
+  --m-input-file denoise_Puffin_tests.qza\
+  --o-visualization denoise_Puffin_tests.qzv
+
+for K in {7..10}; do  
+  qiime metadata tabulate\
+    --m-input-file denoise_Plate$K.qza\
+    --o-visualization denoise_Plate$K.qzv
+done
+```
+
+## 4. Merge across plates
+
+I need to merge both the feature tables, which contain the counts of each feature, and the rep-seqs, which contain the actual sequence for each feature. The overlap method isn't important here as no samples were sequenced on multiple plates. I'm going to include the puffin samples, so that I can do the taxonomy assigment all together later.
+
+```
+qiime feature-table merge \
+  --i-tables table_Plate7.qza \
+  --i-tables table_Plate8.qza \
+  --i-tables table_Plate9.qza \
+  --i-tables table_Plate10.qza \
+  --i-tables table_Puffin_tests.qza \
+  --o-merged-table table_merged.qza
+  
+qiime feature-table merge-seqs \
+  --i-data rep-seqs_Plate7.qza \
+  --i-data rep-seqs_Plate8.qza \
+  --i-data rep-seqs_Plate9.qza \
+  --i-data rep-seqs_Plate10.qza \
+  --i-data rep-seqs_Puffin_tests.qza \
+  --o-merged-data rep-seqs_merged.qza
+  
+qiime feature-table tabulate-seqs \
+  --i-data rep-seqs_merged.qza \
+  --o-visualization rep-seqs_merged
+```
+
+This has produced a load of junk sequences which are more than 200bp long and have long strings of Cs at the beginning. I think I need to go back and change my denoising parameters to fix this, like with the black-capped petrel sequences.
