@@ -6,7 +6,7 @@ Fecal metabarcoding analysis for samples collected in the Gulf of Maine, mostly 
 Load qiime environment and cd to correct directory.
 ```
 cd /Users/gemmaclucas/GitHub/Fecal_metabarcoding/2019_GoM_FecalMetabarcoding
-conda activate qiime2-2021.2
+conda activate qiime2-2021.4
 ```
 
 ## Import the data into Qiime2
@@ -141,11 +141,9 @@ Not going to make the qzv files for now.
 
 ## 3. Denoise with dada2
 
-I am going to use the same settings that I used for the 2017 and 2018 tern fecal samples here.  
+I am going to use the same settings that I used for the 2017 and 2018 tern fecal samples here, except I need to add the ```--p-min-overlap``` parameter, otherwise I seem to be getting a load of rubbish reads which are 250bp long and start with long strings of Cs. This is only available in qiime2-2021.4 and later. I iniitally tried specifying an overlap of 30, but that didn't seem like enough as I was still getting junk sequences, but I think 50 is working well now.
 
-The MiFish amplicon is about 240bp long. Trimming like this will give 268bp with about 28 bp of overlap between forward and reverse reads.
-
-Note, this step is pretty slow to run.
+Note, this step is pretty slow to run, a whole plate takes about 40 mins (but that changes depending on sequencing depth).
 
 ```
 for K in {7..10}; do
@@ -155,6 +153,7 @@ for K in {7..10}; do
     --p-trunc-len-r 138 \
     --p-trim-left-f 0 \
     --p-trim-left-r 0 \
+    --p-min-overlap 50 \
     --p-n-threads 16 \
     --o-representative-sequences rep-seqs_Plate$K \
     --o-table table_Plate$K \
@@ -167,6 +166,7 @@ qiime dada2 denoise-paired \
   --p-trunc-len-r 138 \
   --p-trim-left-f 0 \
   --p-trim-left-r 0 \
+  --p-min-overlap 50 \
   --p-n-threads 16 \
   --o-representative-sequences rep-seqs_Puffin_tests \
   --o-table table_Puffin_tests \
@@ -174,7 +174,7 @@ qiime dada2 denoise-paired \
 
 ```
 
-Create visualizations for the denoising stats.
+Create visualizations for the denoising stats. START HERE
 ```
 qiime metadata tabulate\
   --m-input-file denoise_Puffin_tests.qza\

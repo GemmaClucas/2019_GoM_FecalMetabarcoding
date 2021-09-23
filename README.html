@@ -357,7 +357,7 @@ pre code {
 <p>Fecal metabarcoding analysis for samples collected in the Gulf of Maine, mostly 2019 samples.</p>
 <p>Load qiime environment and cd to correct directory.</p>
 <pre><code>cd /Users/gemmaclucas/GitHub/Fecal_metabarcoding/2019_GoM_FecalMetabarcoding
-conda activate qiime2-2021.2</code></pre>
+conda activate qiime2-2021.4</code></pre>
 <div id="import-the-data-into-qiime2" class="section level2">
 <h2>Import the data into Qiime2</h2>
 <p>It’s saved on my back-up hardrive. This is now full, so the puffin MiFish test reads are on my solid state hardrive “Data_SS1”.</p>
@@ -467,9 +467,8 @@ qiime cutadapt trim-paired \
 </div>
 <div id="denoise-with-dada2" class="section level2">
 <h2>3. Denoise with dada2</h2>
-<p>I am going to use the same settings that I used for the 2017 and 2018 tern fecal samples here.</p>
-<p>The MiFish amplicon is about 240bp long. Trimming like this will give 268bp with about 28 bp of overlap between forward and reverse reads.</p>
-<p>Note, this step is pretty slow to run.</p>
+<p>I am going to use the same settings that I used for the 2017 and 2018 tern fecal samples here, except I need to add the <code>--p-min-overlap</code> parameter, otherwise I seem to be getting a load of rubbish reads which are 250bp long and start with long strings of Cs. This is only available in qiime2-2021.4 and later. I iniitally tried specifying an overlap of 30, but that didn’t seem like enough as I was still getting junk sequences, but I think 50 is working well now.</p>
+<p>Note, this step is pretty slow to run, a whole plate takes about 40 mins (but that changes depending on sequencing depth).</p>
 <pre><code>for K in {7..10}; do
   qiime dada2 denoise-paired \
     --i-demultiplexed-seqs trimd2_Plate$K.qza \
@@ -477,6 +476,7 @@ qiime cutadapt trim-paired \
     --p-trunc-len-r 138 \
     --p-trim-left-f 0 \
     --p-trim-left-r 0 \
+    --p-min-overlap 50 \
     --p-n-threads 16 \
     --o-representative-sequences rep-seqs_Plate$K \
     --o-table table_Plate$K \
@@ -489,12 +489,13 @@ qiime dada2 denoise-paired \
   --p-trunc-len-r 138 \
   --p-trim-left-f 0 \
   --p-trim-left-r 0 \
+  --p-min-overlap 50 \
   --p-n-threads 16 \
   --o-representative-sequences rep-seqs_Puffin_tests \
   --o-table table_Puffin_tests \
   --o-denoising-stats denoise_Puffin_tests 
 </code></pre>
-<p>Create visualizations for the denoising stats.</p>
+<p>Create visualizations for the denoising stats. START HERE</p>
 <pre><code>qiime metadata tabulate\
   --m-input-file denoise_Puffin_tests.qza\
   --o-visualization denoise_Puffin_tests.qzv
