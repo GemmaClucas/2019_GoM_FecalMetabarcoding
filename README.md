@@ -141,7 +141,7 @@ Not going to make the qzv files for now.
 
 ## 3. Denoise with dada2
 
-I am going to use the same settings that I used for the 2017 and 2018 tern fecal samples here, except I need to add the ```--p-min-overlap``` parameter, otherwise I seem to be getting a load of rubbish reads which are 250bp long and start with long strings of Cs. This is only available in qiime2-2021.4 and later. I iniitally tried specifying an overlap of 30, but that didn't seem like enough as I was still getting junk sequences, but I think 50 is working well now.
+I am going to use the same settings that I used for the 2017 and 2018 tern fecal samples here, except I need to add the ```--p-min-overlap``` parameter, otherwise I seem to be getting a load of rubbish reads which are 250bp long and start with long strings of Cs. This is only available in qiime2-2021.4 and later. I initally tried specifying an overlap of 30, but that didn't seem like enough as I was still getting junk sequences, but I think 50 is working well now.
 
 Note, this step is pretty slow to run, a whole plate takes about 40 mins (but that changes depending on sequencing depth).
 
@@ -174,7 +174,7 @@ qiime dada2 denoise-paired \
 
 ```
 
-Create visualizations for the denoising stats. START HERE
+Create visualizations for the denoising stats.
 ```
 qiime metadata tabulate\
   --m-input-file denoise_Puffin_tests.qza\
@@ -186,6 +186,16 @@ for K in {7..10}; do
     --o-visualization denoise_Plate$K.qzv
 done
 ```
+This looks good. It seems like 80% of sequences tend to get through all the filters/denoising from the actual samples, with <1% getting through in the blanks and negatives.
+
+To view the rep-seqs (only running this for one plate, will view all after merging plates)
+```
+qiime feature-table tabulate-seqs \
+  --i-data rep-seqs_Plate7.qza \
+  --o-visualization rep-seqs_Plate7
+```
+This looks good. Using 50 as a minimum overlap seems to get rid of junk sequences.
+
 
 ## 4. Merge across plates
 
@@ -213,4 +223,29 @@ qiime feature-table tabulate-seqs \
   --o-visualization rep-seqs_merged
 ```
 
-This has produced a load of junk sequences which are more than 200bp long and have long strings of Cs at the beginning. I think I need to go back and change my denoising parameters to fix this, like with the black-capped petrel sequences.
+## 5. Assign taxonomy
+
+I think for my WSC3 presentation, I will use my old database and Devin's blast method, for comparability between 2017/18 and 2019 samples. Before publishing, I should probably reclassify everything with an updated database.
+
+```
+conda activate qiime2-2019.4
+
+./mktaxa.py 12SnMito.qza full_taxonomy_strings.qza rep-seqs_merged.qza
+```
+
+## 6. Make barplots
+
+```
+qiime metadata tabulate \
+  --m-input-file superblast_taxonomy.qza \
+  --o-visualization superblast_taxonomy
+  
+qiime taxa barplot \
+  --i-table table_merged.qza \
+  --i-taxonomy superblast_taxonomy.qza \
+  --m-metadata-file metadata_7-10-Puffin.txt \
+  --o-visualization superblast-barplots.qzv
+```
+
+Looking at the Puffin samples, and comparing the ones which had weak bands where I sent both diluted and raw PCR product, the number of reads is slightly higher from the raw PCR product, but it's only a small difference. The composition of the samples seems almost identical in terms of the relative read abundance of each species, so that's very reassuring.
+

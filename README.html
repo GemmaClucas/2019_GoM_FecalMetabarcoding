@@ -467,7 +467,7 @@ qiime cutadapt trim-paired \
 </div>
 <div id="denoise-with-dada2" class="section level2">
 <h2>3. Denoise with dada2</h2>
-<p>I am going to use the same settings that I used for the 2017 and 2018 tern fecal samples here, except I need to add the <code>--p-min-overlap</code> parameter, otherwise I seem to be getting a load of rubbish reads which are 250bp long and start with long strings of Cs. This is only available in qiime2-2021.4 and later. I iniitally tried specifying an overlap of 30, but that didn’t seem like enough as I was still getting junk sequences, but I think 50 is working well now.</p>
+<p>I am going to use the same settings that I used for the 2017 and 2018 tern fecal samples here, except I need to add the <code>--p-min-overlap</code> parameter, otherwise I seem to be getting a load of rubbish reads which are 250bp long and start with long strings of Cs. This is only available in qiime2-2021.4 and later. I initally tried specifying an overlap of 30, but that didn’t seem like enough as I was still getting junk sequences, but I think 50 is working well now.</p>
 <p>Note, this step is pretty slow to run, a whole plate takes about 40 mins (but that changes depending on sequencing depth).</p>
 <pre><code>for K in {7..10}; do
   qiime dada2 denoise-paired \
@@ -495,7 +495,7 @@ qiime dada2 denoise-paired \
   --o-table table_Puffin_tests \
   --o-denoising-stats denoise_Puffin_tests 
 </code></pre>
-<p>Create visualizations for the denoising stats. START HERE</p>
+<p>Create visualizations for the denoising stats.</p>
 <pre><code>qiime metadata tabulate\
   --m-input-file denoise_Puffin_tests.qza\
   --o-visualization denoise_Puffin_tests.qzv
@@ -505,6 +505,12 @@ for K in {7..10}; do
     --m-input-file denoise_Plate$K.qza\
     --o-visualization denoise_Plate$K.qzv
 done</code></pre>
+<p>This looks good. It seems like 80% of sequences tend to get through all the filters/denoising from the actual samples, with &lt;1% getting through in the blanks and negatives.</p>
+<p>To view the rep-seqs (only running this for one plate, will view all after merging plates)</p>
+<pre><code>qiime feature-table tabulate-seqs \
+  --i-data rep-seqs_Plate7.qza \
+  --o-visualization rep-seqs_Plate7</code></pre>
+<p>This looks good. Using 50 as a minimum overlap seems to get rid of junk sequences.</p>
 </div>
 <div id="merge-across-plates" class="section level2">
 <h2>4. Merge across plates</h2>
@@ -528,7 +534,26 @@ qiime feature-table merge-seqs \
 qiime feature-table tabulate-seqs \
   --i-data rep-seqs_merged.qza \
   --o-visualization rep-seqs_merged</code></pre>
-<p>This has produced a load of junk sequences which are more than 200bp long and have long strings of Cs at the beginning. I think I need to go back and change my denoising parameters to fix this, like with the black-capped petrel sequences.</p>
+</div>
+<div id="assign-taxonomy" class="section level2">
+<h2>5. Assign taxonomy</h2>
+<p>I think for my WSC3 presentation, I will use my old database and Devin’s blast method, for comparability between 2017/18 and 2019 samples. Before publishing, I should probably reclassify everything with an updated database.</p>
+<pre><code>conda activate qiime2-2019.4
+
+./mktaxa.py 12SnMito.qza full_taxonomy_strings.qza rep-seqs_merged.qza</code></pre>
+</div>
+<div id="make-barplots" class="section level2">
+<h2>6. Make barplots</h2>
+<pre><code>qiime metadata tabulate \
+  --m-input-file superblast_taxonomy.qza \
+  --o-visualization superblast_taxonomy
+  
+qiime taxa barplot \
+  --i-table table_merged.qza \
+  --i-taxonomy superblast_taxonomy.qza \
+  --m-metadata-file metadata_7-10-Puffin.txt \
+  --o-visualization superblast-barplots.qzv</code></pre>
+<p>Looking at the Puffin samples, and comparing the ones which had weak bands where I sent both diluted and raw PCR product, the number of reads is slightly higher from the raw PCR product, but it’s only a small difference. The composition of the samples seems almost identical in terms of the relative read abundance of each species, so that’s very reassuring.</p>
 </div>
 </div>
 
