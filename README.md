@@ -249,3 +249,112 @@ qiime taxa barplot \
 
 Looking at the Puffin samples, and comparing the ones which had weak bands where I sent both diluted and raw PCR product, the number of reads is slightly higher from the raw PCR product, but it's only a small difference. The composition of the samples seems almost identical in terms of the relative read abundance of each species, so that's very reassuring.
 
+## 7. Separate out the terns from the puffins
+
+Filter the feature table by "Species".
+```
+qiime feature-table filter-samples \
+  --i-table table_merged.qza \
+  --m-metadata-file metadata_7-10-Puffin.txt \
+  --p-where "Species='TERN'" \
+  --o-filtered-table WSC3_terns/terns_table_merged.qza 
+  
+qiime feature-table filter-samples \
+  --i-table table_merged.qza \
+  --m-metadata-file metadata_7-10-Puffin.txt \
+  --p-where "Species='PUFFIN'" \
+  --o-filtered-table Puffin_tests/Puffins_table.qza 
+```
+
+Filter the rep-seqs using the feature tables for each species.
+```
+qiime feature-table filter-seqs \
+  --i-data rep-seqs_merged.qza \
+  --i-table WSC3_terns/terns_table_merged.qza \
+  --o-filtered-data WSC3_terns/terns_rep-seqs.qza
+  
+qiime feature-table filter-seqs \
+  --i-data rep-seqs_merged.qza \
+  --i-table Puffin_tests/Puffins_table.qza \
+  --o-filtered-data Puffin_tests/Puffins_rep-seqs.qza
+
+```
+
+Create the .qzv files to go with the tables and rep-seqs.
+
+```
+qiime feature-table summarize \
+    --i-table WSC3_terns/terns_table_merged.qza \
+    --m-sample-metadata-file metadata_7-10-Puffin.txt \
+    --o-visualization WSC3_terns/terns_table_merged
+    
+qiime feature-table tabulate-seqs \
+    --i-data WSC3_terns/terns_rep-seqs.qza \
+    --o-visualization WSC3_terns/terns_rep-seqs 
+    
+qiime feature-table summarize \
+    --i-table Puffin_tests/Puffins_table.qza \
+    --m-sample-metadata-file metadata_7-10-Puffin.txt \
+    --o-visualization Puffin_tests/Puffins_table
+    
+qiime feature-table tabulate-seqs \
+    --i-data Puffin_tests/Puffins_rep-seqs.qza \
+    --o-visualization Puffin_tests/Puffins_rep-seqs 
+    
+```
+
+## 8. Remove non-food reads
+
+I need to filter out any sequences from the bird, mammals, and unnassigned sequences before rarefying.
+
+```
+qiime taxa filter-table \
+  --i-table WSC3_terns/terns_table_merged.qza \
+  --i-taxonomy superblast_taxonomy.qza \
+  --p-exclude Unassigned,Archelosauria,Mammalia \
+  --o-filtered-table WSC3_terns/terns_table_merged_noBirdsMammalsUnassigned.qza
+  
+qiime feature-table summarize \
+    --i-table WSC3_terns/terns_table_merged_noBirdsMammalsUnassigned.qza \
+    --m-sample-metadata-file metadata_7-10-Puffin.txt \
+    --o-visualization WSC3_terns/terns_table_merged_noBirdsMammalsUnassigned
+```
+
+
+## 8. Rarefy to a sampling depth of 400
+
+This is what I found was deep enough in the 2017 and 2018 tern samples, and so to make this comparable across years, I am going to use the same rarefaction depth. I will lose 7 samples with fewer than 400 food reads.
+
+```
+qiime feature-table rarefy \
+  --i-table WSC3_terns/terns_table_merged_noBirdsMammalsUnassigned.qza \
+  --p-sampling-depth 400 \
+  --o-rarefied-table WSC3_terns/terns_table_rarefied400 
+```
+
+Recreate the barplots for the rarefied table.
+```
+qiime taxa barplot\
+  --i-table WSC3_terns/terns_table_rarefied400.qza \
+  --i-taxonomy superblast_taxonomy.qza \
+  --m-metadata-file metadata_7-10-Puffin.txt \
+  --o-visualization WSC3_terns/terns_rarefied400_barplots
+```
+
+Just out of interest, I am going to make rarefaction curves to see what they look like for these samples. But first I need to collapse the taxa, so that I am rarefying based on taxonomy and not ASVs (which I don't care as much about for these purposes).
+
+```
+qiime taxa collapse \
+  --i-table WSC3_terns/terns_table_merged_noBirdsMammalsUnassigned.qza \
+  --i-taxonomy superblast_taxonomy.qza \
+  --p-level 19 \
+  --o-collapsed-table WSC3_terns/terns_table_noBirdsMammalsUnassigned_collapsed.qza
+
+qiime diversity alpha-rarefaction \
+  --i-table WSC3_terns/terns_table_noBirdsMammalsUnassigned_collapsed.qza \
+  --m-metadata-file metadata_7-10-Puffin.txt \
+  --p-min-depth 100 \
+  --p-max-depth 50000 \
+  --o-visualization WSC3_terns/alpha-rarefaction-100-50000
+  
+```
