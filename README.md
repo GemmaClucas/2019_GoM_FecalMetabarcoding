@@ -358,3 +358,18 @@ qiime diversity alpha-rarefaction \
   --o-visualization WSC3_terns/alpha-rarefaction-100-50000
   
 ```
+
+## 9. What to do with my blanks?
+
+Four of my extraction blanks have fish DNA, none of the no template controls did. So I probably just messed these up during my extractions and introduced a tiny bit of cross-contamination.
+
+The blanks with fish DNA were:
+
+* BLANK_10-4 - herring and 2 pollock reads
+* BLANK_8-2 - only herring
+* BLANK_9-4 - looks like DNA from well G6 got into this (which was in G7), herring, pollock, river herring
+* BLANK_9-7 - only herring
+
+Given that I did 32 negatives and only four had cross-contamination, I think I am comfortable with this level of cross-contamination/cross-talk. Herring is by far the dominant prey type in these plates, so it is not surprising that cross-contamination came from herring.
+
+People on the qiime forum do not suggest removing a fixed number of reads from all samples in the feature table, since the negative control is going to be very different to a real sample that gets contaminated, so it is kind of like removing an arbitrary number of reads by doing it that way. So I think I will just be cool with it and leave it for now, but keep an eye out for any other ways to deal with it.
