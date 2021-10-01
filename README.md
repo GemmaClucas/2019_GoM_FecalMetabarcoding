@@ -11,7 +11,7 @@ conda activate qiime2-2021.4
 
 ## Import the data into Qiime2
 
-It's saved on my back-up hardrive. This is now full, so the puffin MiFish test reads are on my solid state hardrive "Data_SS1".
+It's saved on my back-up hardrive. This is now full, so the puffin MiFish test reads are on my solid state hardrive "Data_SS1". I've also added the data from plates 11 - 14 to Data_SS1. 
 ```
 qiime tools import\
   --type 'SampleData[PairedEndSequencesWithQuality]'\
@@ -42,6 +42,16 @@ qiime tools import\
   --input-path /Volumes/Data_SS1/Puffin_MiFish_tests/reads/ \
   --input-format CasavaOneEightSingleLanePerSampleDirFmt\
   --output-path MiFish/demux_Puffin_tests.qza  
+
+
+for K in {11..14}; do
+  qiime tools import\
+    --type 'SampleData[PairedEndSequencesWithQuality]'\
+    --input-path /Users/gemmaclucas/Desktop/Fecal_metabarcoding/Plate$K/reads/ \
+    --input-format CasavaOneEightSingleLanePerSampleDirFmt\
+    --output-path MiFish/demux_Plate$K.qza
+done 
+
 ```
 
 Move to the diectory where all the next steps will be. Summarise read quality and number of reads for each plate.
@@ -57,6 +67,13 @@ done
 qiime demux summarize \
   --i-data demux_Puffin_tests.qza \
   --o-visualization demux_Puffin_tests.qzv
+  
+for K in {11..14}; do
+  qiime demux summarize \
+    --i-data demux_Plate$K.qza \
+    --o-visualization demux_Plate$K.qzv
+done
+
 ```
 
 ## 2. Trim primers with cutadapt plugin
@@ -84,7 +101,23 @@ for K in {7..10}; do
   qiime demux summarize \
     --i-data trimd_Plate$K.qza \
     --o-visualization trimd_Plate$K.qzv
-done    
+done 
+
+for K in {11..14}; do
+  qiime cutadapt trim-paired \
+    --i-demultiplexed-sequences demux_Plate$K.qza \
+    --p-adapter-f CAAACTGGGATTAGATACCCCACTATG \
+    --p-adapter-r GCTGGCACGAGTTTTACCGAC \
+    --o-trimmed-sequences trimd_Plate$K.qza \
+    --verbose > cutadapt_out_Plate$K.txt
+done
+
+
+for K in {11..14}; do
+  qiime demux summarize \
+    --i-data trimd_Plate$K.qza \
+    --o-visualization trimd_Plate$K.qzv
+done
 ```
 
 And the same for the puffins
@@ -107,7 +140,7 @@ To see how much data passed the filter for each sample:
 grep "Total written (filtered):" cutadapt_out_Plate$K.txt 
 ```
 
-Looks like not very much passed the filters in the puffin samples. 50 - 75% seems to be about the average for the tern samples; some drop as low as 20% though.
+Looks like not very much passed the filters in the puffin samples. 50 - 75% seems to be about the average for the tern samples; some drop as low as 20% though. Plate 11 looks like it didn't do too well, Plate 13 also looks a bit iffy.
 
 
 ### Trim 5' ends of reads
@@ -133,6 +166,15 @@ qiime cutadapt trim-paired \
   --p-front-r CATAGTGGGGTATCTAATCCCAGTTTG \
   --o-trimmed-sequences trimd2_Puffin_tests.qza \
   --verbose > cutadapt_out2_Puffin_tests.txt
+  
+for K in {11..14}; do
+  qiime cutadapt trim-paired \
+    --i-demultiplexed-sequences trimd_Plate$K.qza \
+    --p-front-f GTCGGTAAAACTCGTGCCAGC \
+    --p-front-r CATAGTGGGGTATCTAATCCCAGTTTG \
+    --o-trimmed-sequences trimd2_Plate$K.qza \
+    --verbose > cutadapt_out2_Plate$K.txt
+done
 ```
 
 About 90% of the data seems to pass this filter for both puffins and terns. 
@@ -172,6 +214,20 @@ qiime dada2 denoise-paired \
   --o-table table_Puffin_tests \
   --o-denoising-stats denoise_Puffin_tests 
 
+for K in {11..14}; do
+  qiime dada2 denoise-paired \
+    --i-demultiplexed-seqs trimd2_Plate$K.qza \
+    --p-trunc-len-f 133 \
+    --p-trunc-len-r 138 \
+    --p-trim-left-f 0 \
+    --p-trim-left-r 0 \
+    --p-min-overlap 50 \
+    --p-n-threads 16 \
+    --o-representative-sequences rep-seqs_Plate$K \
+    --o-table table_Plate$K \
+    --o-denoising-stats denoise_Plate$K
+done
+
 ```
 
 Create visualizations for the denoising stats.
@@ -185,8 +241,14 @@ for K in {7..10}; do
     --m-input-file denoise_Plate$K.qza\
     --o-visualization denoise_Plate$K.qzv
 done
+
+for K in {11..14}; do  
+  qiime metadata tabulate\
+    --m-input-file denoise_Plate$K.qza\
+    --o-visualization denoise_Plate$K.qzv
+done
 ```
-This looks good. It seems like 80% of sequences tend to get through all the filters/denoising from the actual samples, with <1% getting through in the blanks and negatives.
+This looks good. It seems like 80% of sequences tend to get through all the filters/denoising from the actual samples, with <1% getting through from the blanks and negatives.
 
 To view the rep-seqs (only running this for one plate, will view all after merging plates)
 ```
@@ -199,7 +261,9 @@ This looks good. Using 50 as a minimum overlap seems to get rid of junk sequence
 
 ## 4. Merge across plates
 
-I need to merge both the feature tables, which contain the counts of each feature, and the rep-seqs, which contain the actual sequence for each feature. The overlap method isn't important here as no samples were sequenced on multiple plates. I'm going to include the puffin samples, so that I can do the taxonomy assigment all together later.
+I need to merge both the feature tables, which contain the counts of each feature, and the rep-seqs, which contain the actual sequence for each feature. The overlap method isn't important here as no samples were sequenced on multiple plates. 
+
+I'm going to keep the puffin samples separate and I've moved puffin stuff into the puffin folder.
 
 ```
 qiime feature-table merge \
@@ -207,20 +271,26 @@ qiime feature-table merge \
   --i-tables table_Plate8.qza \
   --i-tables table_Plate9.qza \
   --i-tables table_Plate10.qza \
-  --i-tables table_Puffin_tests.qza \
-  --o-merged-table table_merged.qza
+  --i-tables table_Plate11.qza \
+  --i-tables table_Plate12.qza \
+  --i-tables table_Plate13.qza \
+  --i-tables table_Plate14.qza \
+  --o-merged-table table_terns7-14_merged.qza
   
 qiime feature-table merge-seqs \
   --i-data rep-seqs_Plate7.qza \
   --i-data rep-seqs_Plate8.qza \
   --i-data rep-seqs_Plate9.qza \
   --i-data rep-seqs_Plate10.qza \
-  --i-data rep-seqs_Puffin_tests.qza \
-  --o-merged-data rep-seqs_merged.qza
+  --i-data rep-seqs_Plate11.qza \
+  --i-data rep-seqs_Plate12.qza \
+  --i-data rep-seqs_Plate13.qza \
+  --i-data rep-seqs_Plate14.qza \
+  --o-merged-data rep-seqs_terns7-14_merged.qza
   
 qiime feature-table tabulate-seqs \
-  --i-data rep-seqs_merged.qza \
-  --o-visualization rep-seqs_merged
+  --i-data rep-seqs_terns7-14_merged.qza \
+  --o-visualization rep-seqs_terns7-14_merged
 ```
 
 ## 5. Assign taxonomy
@@ -230,21 +300,45 @@ I think for my WSC3 presentation, I will use my old database and Devin's blast m
 ```
 conda activate qiime2-2019.4
 
-./mktaxa.py 12SnMito.qza full_taxonomy_strings.qza rep-seqs_merged.qza
+./mktaxa.py 12SnMito.qza full_taxonomy_strings.qza rep-seqs_terns7-14_merged.qza
+```
+
+For the puffins, I'll do this in their own folder so that it doesn't get confused with the terns.
+
+```
+cd Puffin_tests
+./mktaxa.py 12SnMito.qza full_taxonomy_strings.qza rep-seqs_Puffin_tests.qza
 ```
 
 ## 6. Make barplots
+Note that my metadata table is labelled plates 7-10 but it actually contains all the plates.
 
+For the terns:
 ```
+cd /Users/gemmaclucas/GitHub/Fecal_metabarcoding/2019_GoM_FecalMetabarcoding/MiFish/
+
 qiime metadata tabulate \
   --m-input-file superblast_taxonomy.qza \
   --o-visualization superblast_taxonomy
   
 qiime taxa barplot \
-  --i-table table_merged.qza \
+  --i-table table_terns7-14_merged.qza \
   --i-taxonomy superblast_taxonomy.qza \
-  --m-metadata-file metadata_7-10-Puffin.txt \
+  --m-metadata-file metadata_terns_7-14.txt \
   --o-visualization superblast-barplots.qzv
+```
+
+For the puffins:
+```
+qiime metadata tabulate \
+  --m-input-file Puffin_tests/superblast_taxonomy.qza \
+  --o-visualization Puffin_tests/superblast_taxonomy
+  
+qiime taxa barplot \
+  --i-table Puffin_tests/table_Puffin_tests.qza \
+  --i-taxonomy Puffin_tests/superblast_taxonomy.qza \
+  --m-metadata-file metadata_7-10-Puffin.txt \
+  --o-visualization Puffin_tests/superblast-barplots.qzv
 ```
 
 Looking at the Puffin samples, and comparing the ones which had weak bands where I sent both diluted and raw PCR product, the number of reads is slightly higher from the raw PCR product, but it's only a small difference. The composition of the samples seems almost identical in terms of the relative read abundance of each species, so that's very reassuring.
