@@ -277,6 +277,11 @@ qiime feature-table merge \
   --i-tables table_Plate14.qza \
   --o-merged-table table_terns7-14_merged.qza
   
+qiime feature-table summarize \
+    --i-table table_terns7-14_merged.qza \
+    --m-sample-metadata-file metadata_terns_7-14.txt \
+    --o-visualization table_terns7-14_merged
+  
 qiime feature-table merge-seqs \
   --i-data rep-seqs_Plate7.qza \
   --i-data rep-seqs_Plate8.qza \
@@ -343,59 +348,8 @@ qiime taxa barplot \
 
 Looking at the Puffin samples, and comparing the ones which had weak bands where I sent both diluted and raw PCR product, the number of reads is slightly higher from the raw PCR product, but it's only a small difference. The composition of the samples seems almost identical in terms of the relative read abundance of each species, so that's very reassuring.
 
-## 7. Separate out the terns from the puffins
 
-Filter the feature table by "Species".
-```
-qiime feature-table filter-samples \
-  --i-table table_merged.qza \
-  --m-metadata-file metadata_7-10-Puffin.txt \
-  --p-where "Species='TERN'" \
-  --o-filtered-table WSC3_terns/terns_table_merged.qza 
-  
-qiime feature-table filter-samples \
-  --i-table table_merged.qza \
-  --m-metadata-file metadata_7-10-Puffin.txt \
-  --p-where "Species='PUFFIN'" \
-  --o-filtered-table Puffin_tests/Puffins_table.qza 
-```
 
-Filter the rep-seqs using the feature tables for each species.
-```
-qiime feature-table filter-seqs \
-  --i-data rep-seqs_merged.qza \
-  --i-table WSC3_terns/terns_table_merged.qza \
-  --o-filtered-data WSC3_terns/terns_rep-seqs.qza
-  
-qiime feature-table filter-seqs \
-  --i-data rep-seqs_merged.qza \
-  --i-table Puffin_tests/Puffins_table.qza \
-  --o-filtered-data Puffin_tests/Puffins_rep-seqs.qza
-
-```
-
-Create the .qzv files to go with the tables and rep-seqs.
-
-```
-qiime feature-table summarize \
-    --i-table WSC3_terns/terns_table_merged.qza \
-    --m-sample-metadata-file metadata_7-10-Puffin.txt \
-    --o-visualization WSC3_terns/terns_table_merged
-    
-qiime feature-table tabulate-seqs \
-    --i-data WSC3_terns/terns_rep-seqs.qza \
-    --o-visualization WSC3_terns/terns_rep-seqs 
-    
-qiime feature-table summarize \
-    --i-table Puffin_tests/Puffins_table.qza \
-    --m-sample-metadata-file metadata_7-10-Puffin.txt \
-    --o-visualization Puffin_tests/Puffins_table
-    
-qiime feature-table tabulate-seqs \
-    --i-data Puffin_tests/Puffins_rep-seqs.qza \
-    --o-visualization Puffin_tests/Puffins_rep-seqs 
-    
-```
 
 ## 8. Remove non-food reads
 
