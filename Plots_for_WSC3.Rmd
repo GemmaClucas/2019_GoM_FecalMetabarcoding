@@ -264,27 +264,28 @@ All_FOO <- FOO_MON_CHICK %>%
   
 All_FOO$Species <- scrub_periods(All_FOO)
 
-All_FOO %>% 
-  filter(FOO > 0) %>% 
-  ggplot() +
-  geom_bar(aes(x = Species, y = FOO), stat = "identity") +
-  facet_grid(rows = vars(Age), cols = vars(Colony)) +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 45,  hjust=1, colour = "black", margin = margin(t = 0)),
-        axis.text.y = element_text(colour = "black"),
-        axis.text=element_text(size=7),
-        axis.title=element_text(size=8, face = "bold"),
-        axis.ticks.x = element_blank(),
-        panel.border=element_rect(colour="black",size=1, fill = NA),
-        panel.spacing = unit(2, "mm"),
-        strip.background = element_blank(),
-        strip.text = element_text(colour = "black", size=8, face = "bold"),
-        axis.line = element_blank()) +
-  labs(y = "Frequency of occurrence (%)") +
-  theme(legend.position = "none")
+## There isn't enough space to plot it as barplots with faceting, so commenting this out.
+# All_FOO %>% 
+#   filter(FOO > 0) %>% 
+#   ggplot() +
+#   geom_bar(aes(x = Species, y = FOO), stat = "identity") +
+#   facet_grid(rows = vars(Age), cols = vars(Colony)) +
+#   theme_classic() +
+#   theme(axis.text.x = element_text(angle = 45,  hjust=1, colour = "black", margin = margin(t = 0)),
+#         axis.text.y = element_text(colour = "black"),
+#         axis.text=element_text(size=7),
+#         axis.title=element_text(size=8, face = "bold"),
+#         axis.ticks.x = element_blank(),
+#         panel.border=element_rect(colour="black",size=1, fill = NA),
+#         panel.spacing = unit(2, "mm"),
+#         strip.background = element_blank(),
+#         strip.text = element_text(colour = "black", size=8, face = "bold"),
+#         axis.line = element_blank()) +
+#   labs(y = "Frequency of occurrence (%)") +
+#   theme(legend.position = "none")
 ```
 
-Great... there is way too much to try to plot this on one figure. Can I use pie charts instead?
+Great... there is way too much to try to plot this on one figure. Can I use stacked bar charts instead?
 
 ```{r}
 # Use factors for ordering the islands
@@ -304,7 +305,10 @@ p <- All_FOO %>%
   ggplot() +
   geom_bar(aes(x= Age, y = FOO, fill = Species), stat = "identity", position = "fill", colour = "grey40") +
   facet_grid(~Colony_f) +
-  scale_fill_manual(values = Species_with_colours) 
+  scale_fill_manual(values = Species_with_colours) +
+  theme_minimal() +
+  xlab("") +
+  ylab("Percent occurrence")
 p
 
 
@@ -318,11 +322,108 @@ ggsave(filename = "MiFish/WSC3_terns/stacked_barplots_all_colonies.jpg",
 
 ```
 
+
+What are the most frequent items across all colonies?
 ```{r}
 All_FOO %>% group_by(Species) %>% 
   summarise(mean = mean(FOO))  %>% 
   arrange(-mean)
 
 ```
+
+
+### Plotting Relative Read Abundance
+
+```{r}
+options(scipen = 999)
+
+# To do for a single species
+df %>% group_by(Colony, Age) %>% 
+  summarise(reads = sum(Atlantic.herring), 
+            n = n(),
+            RRA = reads / (n*400))
+
+df %>% 
+  group_by(Colony, Age) %>% 
+  mutate(n = n()) %>% 
+  #summarise(across(c(River.herring, Rainbow.smelt)), ~ sum(.x, na.rm = TRUE))
+  summarise(across(where(is.numeric) & !n, ~ sum(.x, na.rm = TRUE))) 
+```
+
+I can't find a way to sum across all the columns while keeping n unchanged or not losing. Going to have to save n in a new datafram I think, then bind.
+
+```{r}
+n_samples_per_group <- df %>% 
+  group_by(Colony, Age) %>% 
+  summarise(n = n()) 
+```
+
+
+```{r}
+RRA_df <- df %>% 
+  filter(!is.na(Colony)) %>% 
+  group_by(Colony, Age) %>% 
+  #summarise(across(c(River.herring, Rainbow.smelt)), ~ sum(.x, na.rm = TRUE))
+  summarise(across(where(is.numeric) & !c(Plate, Year), ~ sum(.x, na.rm = TRUE))) %>% 
+  left_join(., n_samples_per_group) %>% 
+  mutate(total_reads = n*400) %>% 
+  mutate(across(where(is.numeric) & !c(n,total_reads), .fns = ~./total_reads*100 ))
+
+# melt so that it can be plotted as stacked bars
+RRA_melted <- RRA_df %>% 
+  select(-n, -total_reads) %>% 
+  melt() %>% 
+  rename(Species = variable,
+         RRA = value)
+  
+# scrub periods and order species
+RRA_melted$Species <- scrub_periods(RRA_melted)
+```
+
+Plot.Notice I'm not plotting metinic as it has small sample sizes and the graph was already large.
+```{r}
+# Use factors for ordering the islands
+RRA_melted$Colony_f = factor(RRA_melted$Colony, levels = c("Monomoy NWR",
+                                                     "White and Seavey Is.",
+                                                     "Stratton Is.",
+                                                     "Outer Green Is.",
+                                                     "Jenny Is.",
+                                                     "Pond Is.",
+                                                     "Eastern Egg Rock",
+                                                     "Metinic",
+                                                     "Seal Is. NWR",
+                                                     "Ship Is.",
+                                                     "Petit Manan Is."))
+
+r <- RRA_melted %>% 
+  filter(Colony != "Metinic") %>% 
+  ggplot() +
+  geom_bar(aes(x= Age, y = RRA, fill = Species), stat = "identity", position = "fill", colour = "grey40") +
+  facet_grid(~Colony_f) +
+  scale_fill_manual(values = Species_with_colours) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent"),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        legend.background = element_rect(fill = "transparent"), 
+        legend.box.background = element_rect(fill = "transparent", colour = NA),
+        strip.background =element_rect(fill="transparent")) + 
+        xlab("") +
+        ylab("Relative Read Abundance")
+r
+
+ggsave(filename = "MiFish/WSC3_terns/stacked_barplots_all_colonies_RRA_notMetinic.png",
+  plot = r,
+  dpi = 600,
+  device = "png",
+  width = 20,
+  height = 6,
+  bg = "transparent"
+)
+
+
+RRA_df %>% select(Colony, Age, n)
+```
+
 
 
