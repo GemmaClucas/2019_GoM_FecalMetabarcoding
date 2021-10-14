@@ -351,21 +351,21 @@ Looking at the Puffin samples, and comparing the ones which had weak bands where
 
 
 
-## 8. Remove non-food reads
+## 7. Remove non-food reads
 
 I need to filter out any sequences from the bird, mammals, and unnassigned sequences before rarefying.
 
 ```
 qiime taxa filter-table \
-  --i-table WSC3_terns/terns_table_merged.qza \
+  --i-table table_terns7-14_merged.qza \
   --i-taxonomy superblast_taxonomy.qza \
   --p-exclude Unassigned,Archelosauria,Mammalia \
-  --o-filtered-table WSC3_terns/terns_table_merged_noBirdsMammalsUnassigned.qza
+  --o-filtered-table table_terns7-14_merged_noBirdsMammalsUnassigned.qza
   
 qiime feature-table summarize \
-    --i-table WSC3_terns/terns_table_merged_noBirdsMammalsUnassigned.qza \
-    --m-sample-metadata-file metadata_7-10-Puffin.txt \
-    --o-visualization WSC3_terns/terns_table_merged_noBirdsMammalsUnassigned
+    --i-table table_terns7-14_merged_noBirdsMammalsUnassigned.qza \
+    --m-sample-metadata-file metadata_terns_7-14.txt \
+    --o-visualization table_terns7-14_merged_noBirdsMammalsUnassigned
 ```
 
 
@@ -375,35 +375,37 @@ This is what I found was deep enough in the 2017 and 2018 tern samples, and so t
 
 ```
 qiime feature-table rarefy \
-  --i-table WSC3_terns/terns_table_merged_noBirdsMammalsUnassigned.qza \
+  --i-table table_terns7-14_merged_noBirdsMammalsUnassigned.qza \
   --p-sampling-depth 400 \
-  --o-rarefied-table WSC3_terns/terns_table_rarefied400 
+  --o-rarefied-table table_terns7-14_merged_noBirdsMammalsUnassigned_rarefied400 
 ```
 
 Recreate the barplots for the rarefied table.
 ```
 qiime taxa barplot\
-  --i-table WSC3_terns/terns_table_rarefied400.qza \
+  --i-table table_terns7-14_merged_noBirdsMammalsUnassigned_rarefied400.qza \
   --i-taxonomy superblast_taxonomy.qza \
-  --m-metadata-file metadata_7-10-Puffin.txt \
-  --o-visualization WSC3_terns/terns_rarefied400_barplots
+  --m-metadata-file metadata_terns_7-14.txt \
+  --o-visualization terns7-14_merged_noBirdsMammalsUnassigned_rarefied400_barplots
 ```
+
+STOPPING HERE FOR NOW.
 
 Just out of interest, I am going to make rarefaction curves to see what they look like for these samples. But first I need to collapse the taxa, so that I am rarefying based on taxonomy and not ASVs (which I don't care as much about for these purposes).
 
 ```
 qiime taxa collapse \
-  --i-table WSC3_terns/terns_table_merged_noBirdsMammalsUnassigned.qza \
+  --i-table table_terns7-14_merged_noBirdsMammalsUnassigned.qza \
   --i-taxonomy superblast_taxonomy.qza \
   --p-level 19 \
-  --o-collapsed-table WSC3_terns/terns_table_noBirdsMammalsUnassigned_collapsed.qza
+  --o-collapsed-table table_terns7-14_merged_noBirdsMammalsUnassigned_collapsed.qza
 
 qiime diversity alpha-rarefaction \
-  --i-table WSC3_terns/terns_table_noBirdsMammalsUnassigned_collapsed.qza \
-  --m-metadata-file metadata_7-10-Puffin.txt \
+  --i-table table_terns7-14_merged_noBirdsMammalsUnassigned_collapsed.qza \
+  --m-metadata-file metadata_terns_7-14.txt \
   --p-min-depth 100 \
   --p-max-depth 50000 \
-  --o-visualization WSC3_terns/alpha-rarefaction-100-50000
+  --o-visualization alpha-rarefaction-100-50000
   
 ```
 
