@@ -356,6 +356,7 @@ Looking at the Puffin samples, and comparing the ones which had weak bands where
 I need to filter out any sequences from the bird, mammals, and unnassigned sequences before rarefying.
 
 ```
+
 qiime taxa filter-table \
   --i-table table_terns7-14_merged.qza \
   --i-taxonomy superblast_taxonomy.qza \
@@ -367,7 +368,24 @@ qiime feature-table summarize \
     --m-sample-metadata-file metadata_terns_7-14.txt \
     --o-visualization table_terns7-14_merged_noBirdsMammalsUnassigned
 ```
+Note that it takes a pretty long time to run the second command (maybe 15 mins or so). I accidentally re-ran this on 27th October instead of running the puffin commands.
 
+Doing the same for the puffins (27th October):
+```
+cd /Users/gemmaclucas/GitHub/Fecal_metabarcoding/2019_GoM_FecalMetabarcoding/MiFish
+conda activate qiime2-2021.4
+
+qiime taxa filter-table \
+  --i-table Puffin_tests/table_Puffin_tests.qza \
+  --i-taxonomy Puffin_tests/superblast_taxonomy.qza \
+  --p-exclude Unassigned,Archelosauria,Mammalia \
+  --o-filtered-table Puffin_tests/table_Puffin_tests_noBirdsMammalsUnassigned.qza
+  
+qiime feature-table summarize \
+    --i-table Puffin_tests/table_Puffin_tests_noBirdsMammalsUnassigned.qza \
+    --m-sample-metadata-file metadata_7-10-Puffin.txt \
+    --o-visualization Puffin_tests/table_Puffin_tests_noBirdsMammalsUnassigned
+```
 
 ## 8. Rarefy to a sampling depth of 400
 
@@ -406,10 +424,41 @@ qiime diversity alpha-rarefaction \
   --p-min-depth 100 \
   --p-max-depth 50000 \
   --o-visualization alpha-rarefaction-100-50000
-  
 ```
 
+Rarefaction curves for puffins (27th October):
+```
+qiime taxa collapse \
+  --i-table Puffin_tests/table_Puffin_tests_noBirdsMammalsUnassigned.qza \
+  --i-taxonomy Puffin_tests/superblast_taxonomy.qza \
+  --p-level 19 \
+  --o-collapsed-table Puffin_tests/table_Puffin_tests_noBirdsMammalsUnassigned_collapsed.qza
+
+qiime diversity alpha-rarefaction \
+  --i-table Puffin_tests/table_Puffin_tests_noBirdsMammalsUnassigned_collapsed.qza \
+  --m-metadata-file metadata_7-10-Puffin.txt \
+  --p-min-depth 100 \
+  --p-max-depth 50000 \
+  --o-visualization Puffin_tests/alpha-rarefaction-100-50000
+  
+```
+It looks like by 5000 reads, all except one of the rarefaction curves have flattened based on OTUs. They are all completely flat for Shannon diversity. I'd like to take a look in the 100 - 5000 range though, just to see what is happening there. 
+
+```
+qiime diversity alpha-rarefaction \
+  --i-table Puffin_tests/table_Puffin_tests_noBirdsMammalsUnassigned_collapsed.qza \
+  --m-metadata-file metadata_7-10-Puffin.txt \
+  --p-min-depth 100 \
+  --p-max-depth 5000 \
+  --o-visualization Puffin_tests/alpha-rarefaction-100-5000
+```
+
+Yes it seems that by 4000 the OTU curve flattens off, so specifying a minimum of 5000, which is what I said to Will, seems like a good bet. At this depth, 12 of the 14 samples we sent off for sequencing have enough fish DNA in them (85%).
+
+
 ## 9. What to do with my blanks?
+
+NEED TO UPDATE THIS BASED ON ALL PLATES, but based on plates 7-10:
 
 Four of my extraction blanks have fish DNA, none of the no template controls did. So I probably just messed these up during my extractions and introduced a tiny bit of cross-contamination.
 
@@ -420,7 +469,11 @@ The blanks with fish DNA were:
 * BLANK_9-4 - looks like DNA from well G6 got into this (which was in G7), herring, pollock, river herring
 * BLANK_9-7 - only herring
 
-Given that I did 32 negatives and only four had cross-contamination, I think I am comfortable with this level of cross-contamination/cross-talk. Herring is by far the dominant prey type in these plates, so it is not surprising that cross-contamination came from herring.
+Given that I did 32 negatives and only four had cross-contamination, I think I am comfortable with this level of cross-contamination. Herring is by far the dominant prey type in these plates, so it is not surprising that cross-contamination came from herring.
 
 People on the qiime forum do not suggest removing a fixed number of reads from all samples in the feature table, since the negative control is going to be very different to a real sample that gets contaminated, so it is kind of like removing an arbitrary number of reads by doing it that way. So I think I will just be cool with it and leave it for now, but keep an eye out for any other ways to deal with it.
+
+Devin had a really long post on Github about his negatives. He ruled out sytematic cross-contamination, which I think I can do too, since it is just a few wells that are affected.
+
+I think that maybe I can say that any sample with a band on the gel should not be affected by a small amount of cross-contamination, since the original DNA in the sample should overwhelm cross-contaminations. However, samples without bands could have been affected. Therefore only use samples that had a band on the gel?
 
