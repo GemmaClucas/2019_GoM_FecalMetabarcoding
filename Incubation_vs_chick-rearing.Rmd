@@ -1,0 +1,222 @@
+---
+title: "Incubation vs chick-rearing"
+author: "Gemma Clucas"
+date: "4/19/2022"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(RColorBrewer)
+library(reshape2)
+library(tidyverse)
+library(viridis)
+library(knitr)
+```
+
+### Read in the rarefied feature table
+This has had taxonomy corrections made e.g. grouping all River herring.
+```{r}
+df <- read.csv("MiFish/WSC3_terns/Data-for-WSC3-only_plates7-14.csv", header = TRUE) 
+```
+
+Read in table with full sample info. I will use this to pull out the chick-rearing/incubation information.
+```{r}
+meta_df <- read.csv("MiFish/WSC3_terns/2019_COTE_all_metadata.csv", header = TRUE) %>% 
+  rename(BreedingPeriod = Breeding.period..incubation..Chick.rearing..Mixed.)
+```
+
+Add the incubation vs chick-rearing information to the feature table.
+```{r}
+df <- meta_df %>% 
+  select(Unique_ID, BreedingPeriod, Date) %>% 
+  rename(index = Unique_ID) %>% 
+  left_join(df, ., by = "index") 
+```
+
+### Some functions to calculate frequency of occurrence
+```{r}
+# A function to calculate FOO given a filtered feature table and the number of samples
+calc_FOO <- function(x, n_samples) {
+  x %>% 
+  mutate_if(is.numeric, ~1 * (. > 0)) %>%     # change to detection/non-detection
+  summarise_each(funs = sum) %>%              # count number of detections
+  melt() %>%                                  # make into long dataframe
+  rename(Occurrence = value,
+         Species = variable) %>% 
+  mutate(FOO = Occurrence/n_samples*100)
+}
+
+
+# get rid of periods in column names and order species
+scrub_periods <- function(x) {
+  x$Species <-  gsub("\\.", " ", x$Species)
+  # x$Species <- factor(x$Species, levels = Species_ordered)
+}
+
+# combine the first two functions but also allow to discriminate chick-rearing or incubation
+do_everything <- function(Colony_filter, Age_filter){
+  x <- df %>% 
+    filter(Colony == Colony_filter & Age == Age_filter) %>% 
+    select(River.herring:Rainbow.smelt)
+  n_samples <- nrow(x)
+  y <- calc_FOO(x, n_samples)
+  y$Species <- scrub_periods(y)
+  return(y)
+}
+
+
+# combine the first two functions but also allow to discriminate chick-rearing or incubation
+do_everything2 <- function(Colony_filter, Age_filter, BreedingPeriod_filter){
+  x <- df %>% 
+    filter(Colony == Colony_filter & Age == Age_filter & BreedingPeriod == BreedingPeriod_filter) %>% 
+    select(River.herring:Rainbow.smelt)
+  n_samples <- nrow(x)
+  y <- calc_FOO(x, n_samples)
+  y$Species <- scrub_periods(y)
+  return(y)
+}
+
+```
+
+### Some FOO calculations
+I know there must be a way to use map() to do this neatly, but my brain cannot figure it out right now.
+```{r}
+FOO_MON_CHICK <- do_everything("Monomoy NWR", "CHICK") %>% mutate(Colony = "Monomoy NWR", Age = "CHICK")
+FOO_MON_ADULT <- do_everything("Monomoy NWR", "ADULT") %>% mutate(Colony = "Monomoy NWR", Age = "ADULT")
+FOO_SEA_CHICK <- do_everything("White and Seavey Is.", "CHICK") %>% mutate(Colony = "White and Seavey Is.", Age = "CHICK")
+FOO_SEA_ADULT <- do_everything("White and Seavey Is.", "ADULT") %>% mutate(Colony = "White and Seavey Is.", Age = "ADULT")
+FOO_STI_CHICK <- do_everything("Stratton Is.", "CHICK") %>% mutate(Colony = "Stratton Is.", Age = "CHICK")
+FOO_STI_ADULT <- do_everything("Stratton Is.", "ADULT") %>% mutate(Colony = "Stratton Is.", Age = "ADULT")
+FOO_OGI_CHICK <- do_everything("Outer Green Is.", "CHICK") %>% mutate(Colony = "Outer Green Is.", Age = "CHICK")
+FOO_OGI_ADULT <- do_everything("Outer Green Is.", "ADULT") %>% mutate(Colony = "Outer Green Is.", Age = "ADULT")
+FOO_JEN_CHICK <- do_everything("Jenny Is.", "CHICK") %>% mutate(Colony = "Jenny Is.", Age = "CHICK")
+FOO_JEN_ADULT <- do_everything("Jenny Is.", "ADULT") %>% mutate(Colony = "Jenny Is.", Age = "ADULT")
+FOO_PON_CHICK <- do_everything("Pond Is.", "CHICK") %>% mutate(Colony = "Pond Is.", Age = "CHICK")
+FOO_PON_ADULT <- do_everything("Pond Is.", "ADULT") %>% mutate(Colony = "Pond Is.", Age = "ADULT")
+FOO_EGG_CHICK <- do_everything("Eastern Egg Rock", "CHICK") %>% mutate(Colony = "Eastern Egg Rock", Age = "CHICK")
+FOO_EGG_ADULT <- do_everything("Eastern Egg Rock", "ADULT") %>% mutate(Colony = "Eastern Egg Rock", Age = "ADULT")
+FOO_MET_CHICK <- do_everything("Metinic", "CHICK") %>% mutate(Colony = "Metinic", Age = "CHICK")
+FOO_MET_ADULT <- do_everything("Metinic", "ADULT") %>% mutate(Colony = "Metinic", Age = "ADULT")
+FOO_SINWR_CHICK <- do_everything("Seal Is. NWR", "CHICK") %>% mutate(Colony = "Seal Is. NWR", Age = "CHICK")
+FOO_SINWR_ADULT <- do_everything("Seal Is. NWR", "ADULT") %>% mutate(Colony = "Seal Is. NWR", Age = "ADULT")
+FOO_SHI_CHICK <- do_everything("Ship Is.", "CHICK") %>% mutate(Colony = "Ship Is.", Age = "CHICK")
+FOO_SHI_ADULT <- do_everything("Ship Is.", "ADULT") %>% mutate(Colony = "Ship Is.", Age = "ADULT")
+FOO_PMI_CHICK <- do_everything("Petit Manan Is.", "CHICK") %>% mutate(Colony = "Petit Manan Is.", Age = "CHICK")
+FOO_PMI_ADULT <- do_everything("Petit Manan Is.", "ADULT") %>% mutate(Colony = "Petit Manan Is.", Age = "ADULT")
+```
+
+Do the same but split adult samples into incubation and chick-rearing.
+```{r}
+
+FOO_MON_ADULT_MIX <- do_everything2("Monomoy NWR", "ADULT", "Mixed") %>% 
+  mutate(Colony = "Monomoy NWR", Age = "ADULT", Period = "Mixed")
+
+FOO_SEA_ADULT_INC <- do_everything2("White and Seavey Is.", "ADULT", "incubation") %>% 
+  mutate(Colony = "White and Seavey Is.", Age = "ADULT", Period = "Incubation")
+
+FOO_SEA_ADULT_CHR <- do_everything2("White and Seavey Is.", "ADULT", "chick-rearing") %>% 
+  mutate(Colony = "White and Seavey Is.", Age = "ADULT", Period = "Chick-rearing")
+
+FOO_STI_ADULT_INC <- do_everything2("Stratton Is.", "ADULT", "incubation") %>% 
+  mutate(Colony = "Stratton Is.", Age = "ADULT", Period = "Incubation")
+
+FOO_STI_ADULT_CHR <- do_everything2("Stratton Is.", "ADULT", "chick-rearing") %>% 
+  mutate(Colony = "Stratton Is.", Age = "ADULT", Period = "Chick-rearing")
+
+FOO_OGI_ADULT_INC <- do_everything2("Outer Green Is.", "ADULT", "incubation") %>% 
+  mutate(Colony = "Outer Green Is.", Age = "ADULT", Period = "Incubation")
+
+FOO_OGI_ADULT_CHR <- do_everything2("Outer Green Is.", "ADULT", "chick-rearing") %>% 
+  mutate(Colony = "Outer Green Is.", Age = "ADULT", Period = "Chick-rearing")
+
+FOO_JEN_ADULT_INC <- do_everything2("Jenny Is.", "ADULT", "incubation") %>% 
+  mutate(Colony = "Jenny Is.", Age = "ADULT", Period = "Incubation")
+
+FOO_JEN_ADULT_CHR <- do_everything2("Jenny Is.", "ADULT", "chick-rearing") %>% 
+  mutate(Colony = "Jenny Is.", Age = "ADULT", Period = "Chick-rearing")
+
+FOO_PON_ADULT_INC <- do_everything2("Pond Is.", "ADULT", "incubation") %>% 
+  mutate(Colony = "Pond Is.", Age = "ADULT", Period = "Incubation")
+
+FOO_PON_ADULT_CHR <- do_everything2("Pond Is.", "ADULT", "chick-rearing") %>% 
+  mutate(Colony = "Pond Is.", Age = "ADULT", Period = "Chick-rearing")
+
+FOO_EGG_ADULT_INC <- do_everything2("Eastern Egg Rock", "ADULT", "incubation") %>% 
+  mutate(Colony = "Eastern Egg Rock", Age = "ADULT", Period = "Incubation")
+
+FOO_EGG_ADULT_CHR <- do_everything2("Eastern Egg Rock", "ADULT", "chick-rearing") %>% 
+  mutate(Colony = "Eastern Egg Rock", Age = "ADULT", Period = "Chick-rearing")
+
+FOO_MET_ADULT_INC <- do_everything2("Metinic", "ADULT", "incubation") %>% 
+  mutate(Colony = "Metinic", Age = "ADULT", Period = "Incubation")
+
+FOO_MET_ADULT_CHR <- do_everything2("Metinic", "ADULT", "chick-rearing") %>% 
+  mutate(Colony = "Metinic", Age = "ADULT", Period = "Chick-rearing")
+
+FOO_SINWR_ADULT_INC <- do_everything2("Seal Is. NWR", "ADULT", "incubation") %>% 
+  mutate(Colony = "Seal Is. NWR", Age = "ADULT", Period = "Incubation")
+
+FOO_SINWR_ADULT_CHR <- do_everything2("Seal Is. NWR", "ADULT", "chick-rearing") %>% 
+  mutate(Colony = "Seal Is. NWR", Age = "ADULT", Period = "Chick-rearing")
+
+FOO_SHI_ADULT_INC <- do_everything2("Ship Is.", "ADULT", "incubation") %>% 
+  mutate(Colony = "Ship Is.", Age = "ADULT", Period = "Incubation")
+
+FOO_SHI_ADULT_CHR <- do_everything2("Ship Is.", "ADULT", "chick-rearing") %>% 
+  mutate(Colony = "Ship Is.", Age = "ADULT", Period = "Chick-rearing")
+
+FOO_PMI_ADULT_INC <- do_everything2("Petit Manan Is.", "ADULT", "incubation") %>% 
+  mutate(Colony = "Petit Manan Is.", Age = "ADULT", Period = "Incubation")
+
+FOO_PMI_ADULT_CHR <- do_everything2("Petit Manan Is.", "ADULT", "chick-rearing") %>% 
+  mutate(Colony = "Petit Manan Is.", Age = "ADULT", Period = "Chick-rearing")
+
+
+do_everything2("Monomoy NWR", "ADULT", "Mixed") %>% 
+  mutate(Colony = "Monomoy NWR", Age = "ADULT", Period = "Mixed") %>% 
+  bind_rows(., do_everything2("White and Seavey Is.", "ADULT", "incubation") %>% 
+              mutate(Colony = "White and Seavey Is.", Age = "ADULT", Period = "Incubation")) %>% 
+  bind_rows(do_everything2("White and Seavey Is.", "ADULT", "chick-rearing") %>% 
+              mutate(Colony = "White and Seavey Is.", Age = "ADULT", Period = "Chick-rearing")) %>% 
+  bind_rows(do_everything2("Stratton Is.", "ADULT", "incubation") %>% 
+              mutate(Colony = "Stratton Is.", Age = "ADULT", Period = "Incubation")) %>% 
+  bind_rows(do_everything2("Stratton Is.", "ADULT", "chick-rearing") %>% 
+              mutate(Colony = "Stratton Is.", Age = "ADULT", Period = "Chick-rearing")) %>% 
+  bind_rows(do_everything2("Outer Green Is.", "ADULT", "incubation") %>% 
+              mutate(Colony = "Outer Green Is.", Age = "ADULT", Period = "Incubation")) %>% 
+  bind_rows(do_everything2("Outer Green Is.", "ADULT", "chick-rearing") %>% 
+              mutate(Colony = "Outer Green Is.", Age = "ADULT", Period = "Chick-rearing")) %>% 
+  bind_rows(do_everything2("Jenny Is.", "ADULT", "incubation") %>% 
+              mutate(Colony = "Jenny Is.", Age = "ADULT", Period = "Incubation")) %>% 
+  bind_rows(do_everything2("Jenny Is.", "ADULT", "chick-rearing") %>% 
+              mutate(Colony = "Jenny Is.", Age = "ADULT", Period = "Chick-rearing")) %>% 
+  bind_rows(do_everything2("Pond Is.", "ADULT", "incubation") %>% 
+              mutate(Colony = "Pond Is.", Age = "ADULT", Period = "Incubation")) %>% 
+  bind_rows(do_everything2("Pond Is.", "ADULT", "chick-rearing") %>% 
+              mutate(Colony = "Pond Is.", Age = "ADULT", Period = "Chick-rearing")) %>% 
+  bind_rows(do_everything2("Eastern Egg Rock", "ADULT", "incubation") %>% 
+              mutate(Colony = "Eastern Egg Rock", Age = "ADULT", Period = "Incubation")) %>% 
+  bind_rows(do_everything2("Eastern Egg Rock", "ADULT", "chick-rearing") %>% 
+              mutate(Colony = "Eastern Egg Rock", Age = "ADULT", Period = "Chick-rearing")) %>% 
+  bind_rows(do_everything2("Metinic", "ADULT", "incubation") %>% 
+              mutate(Colony = "Metinic", Age = "ADULT", Period = "Incubation")) %>% 
+  bind_rows(do_everything2("Metinic", "ADULT", "chick-rearing") %>% 
+              mutate(Colony = "Metinic", Age = "ADULT", Period = "Chick-rearing")) %>% 
+  bind_rows(do_everything2("Seal Is. NWR", "ADULT", "incubation") %>% 
+              mutate(Colony = "Seal Is. NWR", Age = "ADULT", Period = "Incubation")) %>% 
+  bind_rows(do_everything2("Seal Is. NWR", "ADULT", "chick-rearing") %>% 
+              mutate(Colony = "Seal Is. NWR", Age = "ADULT", Period = "Chick-rearing")) %>% 
+  bind_rows(do_everything2("Ship Is.", "ADULT", "incubation") %>% 
+              mutate(Colony = "Ship Is.", Age = "ADULT", Period = "Incubation")) %>% 
+  bind_rows(do_everything2("Ship Is.", "ADULT", "chick-rearing") %>% 
+              mutate(Colony = "Ship Is.", Age = "ADULT", Period = "Chick-rearing")) %>% 
+  bind_rows(do_everything2("Petit Manan Is.", "ADULT", "incubation") %>% 
+              mutate(Colony = "Petit Manan Is.", Age = "ADULT", Period = "Incubation")) %>% 
+  bind_rows(do_everything2("Petit Manan Is.", "ADULT", "chick-rearing") %>% 
+              mutate(Colony = "Petit Manan Is.", Age = "ADULT", Period = "Chick-rearing"))
+```
+### Make some plots
+
+
