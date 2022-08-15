@@ -176,7 +176,7 @@ qiime taxa barplot \
 
 ## 7. Rarefy to a sampling depth of 400
 
-This is what I found was deep enough in the 2017 and 2018 tern samples, and so I'll use it here too.
+This is what I found was deep enough in the 2017 and 2018 tern samples, and so I'll use it here too. I am also testing 1000 reads to see if it makes a difference to anything, as it might pick up more low abundance taxa.
 
 ```
 qiime feature-table rarefy \
@@ -205,6 +205,48 @@ qiime taxa barplot\
   --o-visualization baprlot_rarefied1000
 ```
 
+## 8. Make sure samples are equally represented in both extraction methods
+
+A few of the samples have dropped out from one plate or the other, so to be able to fairly compare them, I need to exclude samples that do not have a pair on the other plate.
+
+Samples to exclude:  
+* COTE_MON_AD_2019_019  
+* COTE_MON_AD_2019_005R  
+* COTE_MON_AD_2019_006R  
+* COTE_MON_CH_2019_063R  
+* COTE_OGI_CH_2019_061R   
+* COTE_PMI_CH_2019_011R  
+* COTE_PMI_AD_2019_108  
+* COTE_PMI_CH_2019_071  
+* COTE_PON_AD_2019_050  
+* COTE_PON_AD_2019_057  
+* COTE_PON_CH_2019_072  
+* COTE_PON_CH_2019_073  
+* COTE_SEA_CH_2019_206  
+* COTE_SHI_CH_2019_093  
+* COTE_SIN_AD_2019_025R  
+* BLANK_R-4  
+
+I have deleted these from the ```samples-to-keep.txt``` file. To remove them, run:
+
+```
+qiime feature-table filter-samples \
+  --i-table table_merged_rarefied400.qza \
+  --m-metadata-file samples-to-keep.txt \
+  --o-filtered-table table_merged_rarefied400_matchedsamples.qza
+```
+
+Recreate the barplots for the matched table.
+
+```
+qiime taxa barplot\
+  --i-table table_merged_rarefied400_matchedsamples.qza \
+  --i-taxonomy superblast_taxonomy.qza \
+  --m-metadata-file metadata.txt \
+  --o-visualization baprlot_rarefied400_matchedsamples
+  
+```
+
 ## 8. Alpha diversity to test for difference in diversity of fish detected between extraction methods
 ```
 qiime diversity alpha \
@@ -226,60 +268,72 @@ qiime diversity alpha-group-significance \
   --i-alpha-diversity shannon_rarefied400.qza \
   --m-metadata-file metadata.txt  \
   --o-visualization shannon_rarefied400.qzv
+
+qiime diversity alpha \
+  --i-table table_merged_rarefied400_matchedsamples.qza \
+  --p-metric shannon \
+  --o-alpha-diversity shannon_rarefied400_matchedsamples.qza
+  
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity shannon_rarefied400_matchedsamples.qza \
+  --m-metadata-file metadata.txt  \
+  --o-visualization shannon_rarefied400_matchedsamples.qzv
 ```
 
 No difference in diversity among groups whether rarefying to a depth of 1000 (H = 1.729, p = 0.185) or 400 (H = 2.00, p = 0.157).
 
+After matching the samples, there is also not a significant difference between extraction methods (H = 2.93, p = 0.0865)
+
 ## 9. Beta diversity to test for difference in composition among groups
 
-Here I can use both Jaccard distances (presence/absence only) and Bray-Curtis distances (takes into account RRA). I will just use the 400 depth data.
+Here I can use both Jaccard distances (presence/absence only) and Bray-Curtis distances (takes into account RRA). I will just use the 400 depth data but do it for the matched samples.
 
 Using Jaccard distances:
 ```
 qiime diversity beta \
-  --i-table table_merged_rarefied400.qza \
+  --i-table table_merged_rarefied400_matchedsamples.qza \
   --p-metric jaccard \
   --p-n-jobs 4 \
-  --o-distance-matrix jaccardmatrix_rarefied400.qza
+  --o-distance-matrix jaccardmatrix_rarefied400_matchedsamples.qza
   
 qiime diversity pcoa \
-  --i-distance-matrix jaccardmatrix_rarefied400.qza \
-  --o-pcoa pcoa_rarefied400.qza
+  --i-distance-matrix jaccardmatrix_rarefied400_matchedsamples.qza \
+  --o-pcoa pcoa_rarefied400_matchedsamples.qza
   
 qiime emperor plot \
-  --i-pcoa pcoa_rarefied400.qza \
+  --i-pcoa pcoa_rarefied400_matchedsamples.qza \
     --m-metadata-file metadata.txt \
-    --o-visualization emperorplot_rarefied400
+    --o-visualization emperorplot_rarefied400_matchedsamples
     
 qiime diversity beta-group-significance \
-  --i-distance-matrix jaccardmatrix_rarefied400.qza \
+  --i-distance-matrix jaccardmatrix_rarefied400_matchedsamples.qza \
   --m-metadata-file metadata.txt  \
   --m-metadata-column Extraction \
   --o-visualization Extraction_Jaccard-significance.qzv
 ```
-The emperor plot doesn't show any differentiation between the robot and spin-column extractions, but the p-value for the PERMANOVA is significant (pseudo-F = 3.713, p < 0.001). I'm not sure how meaningful this is though, if the PCA doesn't show any clustering
+The emperor plot doesn't show any differentiation between the robot and spin-column extractions, but the p-value for the PERMANOVA is significant (pseudo-F = 3.207, p < 0.001). I'm not sure how meaningful this is though, if the PCA doesn't show any clustering
 
 Do the same but using Bray-Curtis differences.
 ```
 qiime diversity beta \
-  --i-table table_merged_rarefied400.qza \
+  --i-table table_merged_rarefied400_matchedsamples.qza \
   --p-metric braycurtis \
   --p-n-jobs 4 \
-  --o-distance-matrix braycurtis_rarefied400.qza
+  --o-distance-matrix braycurtis_rarefied400_matchedsamples.qza
   
 qiime diversity pcoa \
-  --i-distance-matrix braycurtis_rarefied400.qza \
-  --o-pcoa pcoa_braycurtis_rarefied400.qza
+  --i-distance-matrix braycurtis_rarefied400_matchedsamples.qza \
+  --o-pcoa pcoa_braycurtis_rarefied400_matchedsamples.qza
   
 qiime emperor plot \
-  --i-pcoa pcoa_braycurtis_rarefied400.qza \
+  --i-pcoa pcoa_braycurtis_rarefied400_matchedsamples.qza \
     --m-metadata-file metadata.txt \
-    --o-visualization emperorplot_braycurtis_rarefied400
+    --o-visualization emperorplot_braycurtis_rarefied400_matchedsamples
     
 qiime diversity beta-group-significance \
-  --i-distance-matrix braycurtis_rarefied400.qza \
+  --i-distance-matrix braycurtis_rarefied400_matchedsamples.qza \
   --m-metadata-file metadata.txt  \
   --m-metadata-column Extraction \
   --o-visualization Extraction_braycurtis-significance.qzv
 ```
-Here, the emperor plot also doesn't show any clustering, and the PERMANOVA is not significant (pseudo-F = 0.847, p = 0.539). 
+Here, the emperor plot also doesn't show any clustering, and the PERMANOVA is not significant (pseudo-F = 0.399, p = 0.94). 
